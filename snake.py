@@ -111,7 +111,6 @@ if __name__ == '__main__':
         m.printWord()
         if kbhit():
             code = ord(getch())
-            #print("a:",ord('a'), " now: ", )
             if code == ord('a'):
                 s.turnLeft()
             if code == ord('d'):
