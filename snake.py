@@ -1,7 +1,16 @@
 #!/usr/bin/env python
 
 import time, os, random
-from msvcrt import kbhit, getch
+
+# Windows
+if os.name == 'nt':
+    import msvcrt
+# Posix (Linux, OS X)
+else:
+    import sys
+    import termios
+    import atexit
+    from select import select
 
 UP = 0
 RIGHT = 1
@@ -11,6 +20,51 @@ LEFT = 3
 #zufall
 rand = random.Random()
 rand.seed(None)
+
+# implement msvcrt on linux
+# mostly stolen from 
+# http://home.wlu.edu/~levys/software/kbhit.py
+class Keyboard(object):
+    def __init__(self):
+        if os.name == 'nt':
+            pass
+
+        else:
+            # Save the terminal settings
+            self.fd = sys.stdin.fileno()
+            self.new_term = termios.tcgetattr(self.fd)
+            self.old_term = termios.tcgetattr(self.fd)
+
+            # New terminal setting unbuffered
+            self.new_term[3] = (self.new_term[3] & ~termios.ICANON & ~termios.ECHO)
+            termios.tcsetattr(self.fd, termios.TCSAFLUSH, self.new_term)
+
+            # Support normal-terminal reset at exit
+            atexit.register(self.reset_terminal)
+
+    def kbhit(self):
+        if os.name == 'nt':
+            return msvcrt.kbhit()
+
+        else:
+            dr,dw,de = select([sys.stdin], [], [], 0)
+            return dr != []
+
+    def getch(self):    
+        s = ''
+
+        if os.name == 'nt':
+            return msvcrt.getch().decode('utf-8')
+
+        else:
+            return sys.stdin.read(1)
+
+    def reset_terminal(self):
+        if os.name == 'nt':
+            pass
+
+        else:
+            termios.tcsetattr(self.fd, termios.TCSAFLUSH, self.old_term)
 
 class WordMap(object):
     def __init__(self, x = 20, y = 10):
@@ -101,16 +155,20 @@ class snake(object):
 
 
 if __name__ == '__main__':
-
+    kb = Keyboard()
     m = WordMap(x = 50, y = 20)
     s = snake(m)
 
     while s.move():
-        os.system('CLS')
+        # Windows
+        if os.name == 'nt':
+            os.system('CLS')
+        else:
+            os.system('clear')
 
         m.printWord()
-        if kbhit():
-            code = ord(getch())
+        if kb.kbhit():
+            code = ord(kb.getch())
             if code == ord('a'):
                 s.turnLeft()
             if code == ord('d'):
@@ -118,3 +176,4 @@ if __name__ == '__main__':
 
         time.sleep(0.1)
     print("Du bist gestorben, erreichte Punkte ", m.counter)
+    kb.reset_terminal()
